@@ -1,4 +1,4 @@
- function applyFilters(config, from, to, amount) {
+function applyFilters(config, from, to, amount) {
     let toSave = true;
     Object.keys(config).forEach(key => {
         if (!FILTERS[key](config[key], from, to, Number.parseFloat(amount).toFixed(20))) {

@@ -1,13 +1,20 @@
 require('dotenv').config()
 const { Client } = require('pg')
 
-async function getActiveConfig() {
-    const client = new Client();
-    await client.connect();
+async function getActiveConfig(client) {
     const configs = await client.query("SELECT * FROM configs WHERE active = TRUE");
-    return configs.rows[0];
+    const config = configs.rows[0] || null;
+    return config;
+}
+
+async function saveTransaction(client, transaction, config) {
+    const text = 'INSERT INTO transactions(transaction_hash, config) VALUES($1, $2) RETURNING *'
+    const values = [transaction, config];
+    const insertedTransaction = await client.query(text, values);
+    return insertedTransaction.rows[0] || null;
 }
 
 module.exports = {
-    getActiveConfig
+    getActiveConfig,
+    saveTransaction
 }

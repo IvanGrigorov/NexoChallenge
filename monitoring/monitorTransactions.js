@@ -1,45 +1,108 @@
+require('dotenv').config()
 const {
     Contract,
-    formatUnits,
     ethers,
     formatEther } = require("ethers");
-const { getActiveConfig } = require("./helpers/dbHelper")
+const { getActiveConfig, saveTransaction } = require("./helpers/dbHelper")
 const { applyFilters } = require("./helpers/filterHelper")
+const { log, logError } = require("./helpers/loggerHelper")
 
+// Using only one connection for the DB
+// to avoid too many spawned connections
+const { Client } = require('pg')
+const client = new Client();
 
 async function monitor() {
-	const configData = await getActiveConfig();
 
-	const url = "https://mainnet.infura.io/v3/f851eb2c9a944168a3551be3b950a6a5"
+	// Single connection established
+	await client.connect();
+
+
+	const configData = await getActiveConfig(client);
+	if (!configData) {
+		logError("No config provided");
+		// Exit
+		throw new Error("Program exited!")
+	}
+
+	const url = process.env.INFURA_URL;
 	const provider = new ethers.JsonRpcProvider(url);
 
-	//const balance = await provider.getBalance("0x4838B106FCe9647Bdf1E7877BF73cE8B0BAD5f97")
-
-
-	// The contract ABI (fragments we care about)
+	// The contract ABI
 	const abi = [
 		"event Transfer(address indexed from, address indexed to, uint amount)"
 	]
 
-	// Create a contract; connected to a Provider, so it may
-	// only access read-only methods (like view and pure)
-	const contract = new Contract("0xdAC17F958D2ee523a2206206994597C13D831ec7", abi, provider)
+	// Create a contract; connected to a Provider
+	const contract = new Contract(process.env.CONTRACT, abi, provider)
 
+	// Start monitoring
+	attachMonitoring(client, contract, configData, log);
 
-	contract.on("Transfer", (from, to, _amount, event) => {
-		const amount = formatEther(_amount, 18)
+	// Uncomment for config autoupdating
+	autoUpdate(client, contract, log);
+
+}
+
+function attachMonitoring(client, contract, configData, log) {
+	contract.on("Transfer", async (from, to, _amount, event) => {
+		console.log("===========");
+		console.log("===========");
+		console.log(configData.id);
+		console.log("===========");
+		console.log("===========");
+
+		log("New transaction: " + event.log.transactionHash )
+		const amount = formatEther(_amount, process.env.ETHER_NUMBER_FORMAT)
 		const toSave = applyFilters(configData.config, from, to, amount)
 		
-		console.log(toSave)
 		if (toSave) {
 			console.log(`Saved ${ from } => ${ to }: ${ amount }`);
+			try {
+				const insertedTransaction = await saveTransaction(client, event.log.transactionHash, configData.id)
+				if (!insertedTransaction) {
+					logError(`Wrongly saved transaction with hash ${event.log.transactionHash}`);
+					// Exit
+					throw new Error("Program exited!")
+				}
+				log(`Saved ${ from } => ${ to }: ${ amount }`)
+				log(`The transaction:  ${ insertedTransaction.id }`)
+			}
+			catch(error) {
+				logError(error.message)
+			}
 
 		}
 		else {
-			console.log(`Skipped ${ from } => ${ to }: ${ amount }`);
-
+			log(`Skipped ${ from } => ${ to }: ${ amount }`)
 		}
 	})
+}
+
+function autoUpdate(client, contract, log) {
+	setInterval(async () => {
+
+		log("Start updating config...");
+
+		// Clear current listeners
+		contract.removeAllListeners("Transfer");
+
+		// Retrieve probable new config
+		const configData = await getActiveConfig(client);
+		if (!configData) {
+			logError("No config provided");
+			// Exit
+			throw new Error("Program exited!")
+		}
+		log("Probable new config gathered");
+
+
+		// Attach the monitoring with the new config again
+		attachMonitoring(client, contract, configData, log);
+		log("Probable new config attached");
+
+	}, process.env.AUTO_UPDATE_INTERVAL_IN_SECONDS)
+
 }
 
 monitor();
