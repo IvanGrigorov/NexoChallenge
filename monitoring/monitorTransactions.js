@@ -40,18 +40,12 @@ async function monitor() {
 	attachMonitoring(client, contract, configData, log);
 
 	// Uncomment for config autoupdating
-	autoUpdate(client, contract, log);
+	//autoUpdate(client, contract, log);
 
 }
 
 function attachMonitoring(client, contract, configData, log) {
 	contract.on("Transfer", async (from, to, _amount, event) => {
-		console.log("===========");
-		console.log("===========");
-		console.log(configData.id);
-		console.log("===========");
-		console.log("===========");
-
 		log("New transaction: " + event.log.transactionHash )
 		const amount = formatEther(_amount, process.env.ETHER_NUMBER_FORMAT)
 		const toSave = applyFilters(configData.config, from, to, amount)
