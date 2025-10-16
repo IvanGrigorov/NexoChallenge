@@ -9,6 +9,8 @@
     "pino": "^10.0.0"
   },
   "scripts": {
-    "start": "node server.js"
+    "startAPI": "node server.js",
+    "startMonitoring": "node ./monitoring/monitorTransactions.js",
+    "start": "npm run startAPI & npm run startMonitoring"
   }
 }

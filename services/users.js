@@ -1,4 +1,4 @@
-const { User: UserDTO } = require("./../../models/DTO/user")
+const { User: UserDTO } = require("./../models/DTO/user")
 
 class Users {
 
@@ -8,13 +8,14 @@ class Users {
 
     async returnUser() {
         try {
-            this.db.connect();
             const users = await this.db.executeQuery("SELECT * FROM users");
-            this.db.end();
+            if (!users.rows.length) {
+                throw new Error("No users can be fetched");
+            }
             return new UserDTO(users.rows[0].name, users.rows[0].admin)
         }
         catch (error) {
-            console.log("Something is wrong with the DB: ", error.message);
+            throw new Error("Something is wrong with the DB: ", error.message);
         }
     }
 }

@@ -1,3 +1,4 @@
+// DB Wrapper to be able to quickly switch adapters
 class DB {
     constructor(client) {
         this.client = client;
@@ -12,8 +13,10 @@ class DB {
         this.client.end();
     }
 
-    // Register routes
+    // Allows us to attach to every query to add our logic
+    // We are sure that we always have connection and only if we need it
     async executeQuery(query, args) {
+        this.connect();
         const res = await this.client.query(query, args);
         return res;
     }
