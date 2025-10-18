@@ -119,7 +119,7 @@ CREATE TABLE public.users (
   id uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   name text NOT NULL,
   admin boolean NOT NULL DEFAULT false,
-  password_hash text NOT NULL DEFAULT 'asdasdasdasdasdsad'::text UNIQUE,
+  password_hash text NOT NULL UNIQUE,
   CONSTRAINT users_pkey PRIMARY KEY (id)
 );
 ```
